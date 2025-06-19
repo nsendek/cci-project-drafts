@@ -1,0 +1,22 @@
+body {
+  margin: 0;
+  background: black;
+  color: white;
+  height: 100vh;
+}
+
+#tooltip {
+  position: absolute;
+  font-size: 1em;
+}
+
+.p5Canvas {
+  position: absolute;
+  bottom: 0;
+}
+
+main {
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+}
