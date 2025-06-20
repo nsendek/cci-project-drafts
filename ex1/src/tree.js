@@ -255,28 +255,35 @@ export function getMemoizedSkinnedMesh(scale) {
   const skinWeights = [];
 
   const vertex = new THREE.Vector3();
+  const boneLength = totalLength / (boneCount - 1);
 
-  // console.log(position.count)
   for (let i = 0; i < position.count; i++) {
     vertex.fromBufferAttribute(position, i);
     const y = vertex.y; 
-    // console.log('y', y)
 
     // Determine bone indices and blend amount
-    const boneLength = totalLength / (boneCount - 1);
-    let boneIndex = Math.floor(y / boneLength);
-    let nextBoneIndex = boneIndex + 1;
+    const t = (y % boneLength) / boneLength; // 0 to 1
 
-    if (nextBoneIndex >= boneCount) {
-      nextBoneIndex = boneCount - 1;
-      boneIndex = boneCount - 2;
+    const boneIndex = Math.floor(y / boneLength);
+    const nextBoneIndex = Math.min(boneIndex + 1, boneCount - 1);
+    const prevBoneIndex = Math.max(boneIndex - 1, 0);
+
+    const wPrev = (1 - t) / 3;
+    const wCurr = 1 - Math.abs(t - 0.5); // peak at center
+    const wNext = t / 3;
+
+    if (boneIndex == 0) {
+      const total = wCurr + wNext;
+      skinIndices.push(boneIndex, nextBoneIndex, 0, 0);
+      skinWeights.push(wCurr / total, wNext / total, 0, 0);
+    } else if (boneIndex == (boneCount - 1)) {
+      skinIndices.push(boneIndex, 0, 0, 0);
+      skinWeights.push(1, 0, 0, 0);
+    } else {
+      const total = wPrev + wCurr + wNext;
+      skinIndices.push(prevBoneIndex, boneIndex, nextBoneIndex, 0);
+      skinWeights.push(wPrev / total, wCurr / total, wNext / total, 0);
     }
-
-    const localY = y - boneIndex * boneLength;
-    const weight = 1 - (localY / boneLength);
-
-    skinIndices.push(boneIndex, nextBoneIndex, 0, 0);
-    skinWeights.push(weight, 1 - weight, 0, 0);
   }
 
   geometry.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skinIndices, 4));
