@@ -3,9 +3,6 @@ import {
   EventBus,
   getQuaternionForAlignmentVector,
   getPoseLimbs,
-  getPoseSize,
-  getEndIndices,
-  getIgnoredIndices,
   keypointToVector3,
 } from "./util.js";
 
@@ -22,7 +19,7 @@ const POSE_TREE_MATERIAL = new THREE.MeshPhongMaterial({
   side: THREE.DoubleSide,
   flatShading: config.flatShading,
   transparent: true,
-  // opacity: 0.6,
+  // opacity: 0.3,
   shininess: 10
 });
 
@@ -51,31 +48,26 @@ export class PoseTree {
     this.shouldAlign = shouldAlign;
     this.targetPose = null;
 
-    for (let i = 0; i < getPoseSize(); i++) {
-      // skip pose points that don't matter.
-      if (getIgnoredIndices().includes(i)) {
-        continue;
-      }
-
-      const bone = new SmartBone();
-      bone.position.copy(new THREE.Vector3(0, 10, 0));
-      this.bones[i] = (bone);
-
-      if (config.debugMode) {
-        const axis = new THREE.AxesHelper(10);
-        axis.setColors(0xff0000, 0x00ff00, 0x0000ff); // RGB
-        bone.add(axis);
-      }
-    }
+    this.root = new THREE.Group();
+    this.limbs = [];
 
     getPoseLimbs().forEach(limb => {
+      // Init limb chain with first bone.
+      const chainRoot = new SmartBone(limb[0]);
+      this.root.add(chainRoot);
+      const boneChain = [chainRoot];
+
       for (let i = 1; i < limb.length; i++) {
         const childId = limb[i];
-        const parentId = limb[i - 1];
-        this.keypointToParentMap[childId] = parentId;
 
-        this.bones[parentId].add(this.bones[childId]);
+        const bone = new SmartBone(childId);
+        bone.position.y = 1;
+
+        boneChain[i - 1].add(bone);
+        boneChain.push(bone);
       }
+
+      this.limbs.push(boneChain);
     });
 
     // Need to access this data often.
@@ -100,67 +92,110 @@ export class PoseTree {
 
   setTarget(targetPose) {
     this.targetPose = targetPose;
+    this.update();
   }
 
   update() {
     if (!this.targetPose) {
       return;
     }
-    this.align(this.targetPose);
+    this.align();
   }
 
-  align(targetPose) {
-    const rootBone = this.bones[0];
-    rootBone.updateMatrixWorld();
-    for (let i = 1; i < getPoseSize(); i++) {
-      if (getIgnoredIndices().includes(i)) {
-        continue;
+  // alignV3() {
+  //   this.getRoot().updateMatrixWorld(true);
+  //   this.limbs.forEach(limb => {
+  //     for (let i = 0; i < limb.length - 1; i++) {
+  //       const bone = limb[i];
+  //       const childBone = limb[i + 1];
+
+  //       bone.updateMatrixWorld();
+
+  //       const boneWorldPosition = this.getWorldPosition(bone.poseId);
+  //       const childWorldPosition = this.getWorldPosition(childBone.poseId);
+  //       const worldOffset = new THREE.Vector3().subVectors(childWorldPosition, boneWorldPosition);
+
+  //       const magnitide = worldOffset.length();
+
+  //       const targetUp = worldOffset.clone().normalize(); // target up axis in world space.
+  //       // const localUp = new THREE.Vector3(0, 1, 0); // node local up axis.
+  //       const parentWorldQuat = new THREE.Quaternion();
+  //       bone.parent.getWorldQuaternion(parentWorldQuat);
+
+  //       const worldZ = new THREE.Vector3(0, 0, 1);//.applyQuaternion(parentWorldQuat).normalize();
+
+  //       if (Math.abs(targetUp.dot(worldZ)) > 0.999) worldZ.set(1, 0, 0);//.applyQuaternion(parentWorldQuat).normalize(); // avoid parallel case
+
+  //       // const rotationQuat = new THREE.Quaternion().setFromUnitVectors(localUp, targetUp);
+
+  //       const xAxis = new THREE.Vector3().crossVectors(worldZ, targetUp).normalize();
+  //       const zAxis = new THREE.Vector3().crossVectors(targetUp, xAxis).normalize();
+
+  //       const rotMatrix = new THREE.Matrix4().makeBasis(xAxis, targetUp, zAxis);
+  //       const rotationQuat = new THREE.Quaternion().setFromRotationMatrix(rotMatrix);
+  //       // const parentWorldQuatInvert = new THREE.Quaternion();
+  //       // bone.parent.getWorldQuaternion(parentWorldQuatInvert).invert();
+
+  //       // rotationQuat.premultiply(parentWorldQuatInvert);
+
+  //       // Rotate bone than translate child to the expected position along +Y
+  //       bone.setTargetQuaternion(rotationQuat);
+  //       childBone.setTargetPosition(new THREE.Vector3(0, magnitide, 0));
+  //     }
+  //   });
+  // }
+
+
+  align() {
+    this.getRoot().updateMatrixWorld(true);
+    this.limbs.forEach(limb => {
+      for (let i = 0; i < limb.length - 1; i++) {
+        const bone = limb[i];
+        const childBone = limb[i + 1];
+
+        bone.updateMatrixWorld(true);
+        childBone.updateMatrixWorld(true);
+
+        const boneWorldPosition = this.getWorldPosition(bone.poseId);
+        const childWorldPosition = this.getWorldPosition(childBone.poseId);
+        const worldOffset = new THREE.Vector3().subVectors(childWorldPosition, boneWorldPosition);
+
+        const magnitide = worldOffset.length();
+
+        const targetUp = worldOffset.clone().normalize(); // target up axis in world space.
+        const localUp = new THREE.Vector3(0, 1, 0); // node local up axis.
+        const rotationQuat = new THREE.Quaternion().setFromUnitVectors(localUp, targetUp);
+
+        const parentWorldQuatInvert = new THREE.Quaternion();
+        bone.parent.getWorldQuaternion(parentWorldQuatInvert).invert();
+
+        rotationQuat.premultiply(parentWorldQuatInvert);
+
+        // Rotate bone than translate child to the expected position along +Y
+        bone.setTargetQuaternion(rotationQuat);
+        childBone.setTargetPosition(new THREE.Vector3(0, magnitide, 0));
       }
-      const parentId = this.keypointToParentMap[i];
+    });
+  }
 
-      const bone = this.bones[i];
-      const parentBone = bone.parent;
+  getWorldPosition(poseId) {
+    const alignQuat = this.shouldAlign
+      ? getQuaternionForAlignmentVector(this.targetPose.alignmentVector)
+      : new THREE.Quaternion();
+    const worldPosition = keypointToVector3(this.targetPose.keypoints3D[poseId]);
+    if (this.shouldAlign) worldPosition.applyQuaternion(alignQuat);
+    worldPosition.multiplyScalar(this.getValueScalar());
+    worldPosition.applyMatrix4(this.getRoot().matrixWorld);
 
-      parentBone.updateMatrixWorld();
-
-      const alignQuat = this.shouldAlign
-        ? getQuaternionForAlignmentVector(targetPose.alignmentVector)
-        : new THREE.Quaternion();
-
-      // TRANSLATE STEP
-      // targetPose is position relative to the root of the chain so to get world
-      // coordinates, we have to apply the rootBone's world matrix.
-      const parentWorldPosition = keypointToVector3(targetPose.keypoints3D[parentId]);
-      parentWorldPosition.applyQuaternion(alignQuat);
-      parentWorldPosition.multiplyScalar(this.getValueScalar());
-      parentWorldPosition.applyMatrix4(rootBone.matrixWorld);
-
-      const childWorldPosition = keypointToVector3(targetPose.keypoints3D[i]);
-      childWorldPosition.applyQuaternion(alignQuat);
-      childWorldPosition.multiplyScalar(this.getValueScalar());
-      childWorldPosition.applyMatrix4(rootBone.matrixWorld);
-
-      const worldOffset = new THREE.Vector3().subVectors(childWorldPosition, parentWorldPosition);
-
-      const parentWorldQuatInvert = new THREE.Quaternion();
-      parentBone.getWorldQuaternion(parentWorldQuatInvert).invert();
-
-      const localOffset = worldOffset.clone().applyQuaternion(parentWorldQuatInvert);
-      bone.setTargetPosition(localOffset);
-
-      // ROTATE STEP: 
-      // Align up-axis (+Y) to new direction.
-      const targetUp = worldOffset.clone().normalize(); // target up axis in world space.
-      const localUp = new THREE.Vector3(0, 1, 0); // node local up axis.
-      const rotationQuat = new THREE.Quaternion().setFromUnitVectors(localUp, targetUp);
-
-      rotationQuat.premultiply(parentWorldQuatInvert); // <- CHATGPT
-      bone.setTargetQuaternion(rotationQuat);
-    }
+    return worldPosition;
   }
 
   getRoot() {
-    return this.bones[0];
+    return this.root;
+  }
+
+  getLimbs() {
+    return this.limbs;
   }
 
   getBones() {
@@ -174,7 +209,7 @@ export class PoseTree {
   }
 
   getEnds() {
-    return getEndIndices().map(i => this.bones[i]);
+    return this.limbs.map(bones => bones[bones.length - 1]);
   }
 }
 
@@ -197,6 +232,12 @@ export class SmartBone extends THREE.Bone {
     super();
     this.poseId = poseId;
     SmartBone.instances.push(this);
+
+    if (config.debugMode) {
+      const axis = new THREE.AxesHelper(10);
+      axis.setColors(0xff0000, 0x00ff00, 0x0000ff); // RGB
+      this.add(axis);
+    }
   }
 
   setTargetPosition(position) {
@@ -240,12 +281,13 @@ export function getMemoizedSkinnedMesh(scale) {
   if (SKINNED_MESH_MEMO[scale]) {
     return SKINNED_MESH_MEMO[scale].clone();
   }
-  const segmentLength = 10;
-  const boneCount = config.poseType == 'hand' ? 5 : 4; // I GET TO ASSUME BONE COUNT CAUSE ALL MY LIMBS HAVE THE SAME # BONES.
+  const segmentLength = 1;
+  const boneCount = (config.poseType == 'hand' ? 5 : 4); // I GET TO ASSUME BONE COUNT CAUSE ALL MY LIMBS HAVE THE SAME # BONES.
+  const sizing = config.poseType == 'hand' ? 30 : 100;
   const totalLength = segmentLength * (boneCount);
   const heightSegments = 10; // More segments = smoother skinning
 
-  const geometry = new THREE.CylinderGeometry(100 * scale * config.scaleFactor, 100 * scale, totalLength, 8, heightSegments, true);
+  const geometry = new THREE.CylinderGeometry(sizing * scale * config.scaleFactor, sizing * scale, totalLength, 8, heightSegments, true);
   // Shift geometry so base is at y=0 (like the root bone)
   geometry.translate(0, totalLength / 2, 0);
 
@@ -259,7 +301,7 @@ export function getMemoizedSkinnedMesh(scale) {
 
   for (let i = 0; i < position.count; i++) {
     vertex.fromBufferAttribute(position, i);
-    const y = vertex.y; 
+    const y = vertex.y;
 
     // Determine bone indices and blend amount
     const t = (y % boneLength) / boneLength; // 0 to 1
@@ -272,13 +314,13 @@ export function getMemoizedSkinnedMesh(scale) {
     const wCurr = 1 - Math.abs(t - 0.5); // peak at center
     const wNext = t / 3;
 
-    if (boneIndex == 0) {
+    if (boneIndex === 0) {
       const total = wCurr + wNext;
       skinIndices.push(boneIndex, nextBoneIndex, 0, 0);
       skinWeights.push(wCurr / total, wNext / total, 0, 0);
-    } else if (boneIndex == (boneCount - 1)) {
-      skinIndices.push(boneIndex, 0, 0, 0);
-      skinWeights.push(1, 0, 0, 0);
+    } else if (boneIndex === (boneCount - 1)) {
+      skinIndices.push(prevBoneIndex, boneIndex, 0, 0);
+      skinWeights.push(t, 1 - t, 0, 0);
     } else {
       const total = wPrev + wCurr + wNext;
       skinIndices.push(prevBoneIndex, boneIndex, nextBoneIndex, 0);

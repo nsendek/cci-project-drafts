@@ -23,22 +23,12 @@ export const MAX_NUMBER_POSES = 3;
  *       (28)   (27)
  */
 
-export const BODYPOSE_SIZE = 33;
-
 export const BODYPOSE_LIMBS = [
   [0, 11, 13, 15],
-  // [0, 12, 14, 16],
-  // [0, 23, 25, 27],
+  [0, 12, 14, 16],
+  [0, 23, 25, 27],
   [0, 24, 26, 28],
 ];
-
-export const BODYPOSE_END_INDICES = [15, 16, 27, 28];
-
-export const BODYPOSE_IGNORED_INDICES = [
-  ...[ 12, 14, 16],
-  ...[ 23, 25, 27],
-  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 17, 18, 19, 20, 21, 22, 29, 30, 31, 32
-]
 
 /**
  * Refer to 
@@ -56,18 +46,6 @@ export const BODYPOSE_IGNORED_INDICES = [
  *    |     |     |     |     |
  *   (4)   (8)  (12)  (16)  (20)
  */
-
-export const HANDPOSE_SIZE = 21;
-
-export const HANDPOSE_IGNORED_INDICES = [
-  // 1, 2, 3, 4,
-  // 5, 6, 7, 8,
-  // 9, 10, 11, 12,
-  // 13, 14, 15, 16,
-  // 17, 18, 19, 20
-];
-
-export const HANDPOSE_END_INDICES = [4, 8, 12, 16, 20];
 
 export const HANDPOSE_LIMBS = [
   [0, 1, 2, 3, 4],

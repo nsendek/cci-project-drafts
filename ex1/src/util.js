@@ -110,18 +110,6 @@ export function keypointToVector3(keypoint) {
   : new THREE.Vector3(keypoint.x * -1, keypoint.y, keypoint.z * -1)
 }
 
-export function getPoseSize() {
-  return config.poseType === 'hand' ? constants.HANDPOSE_SIZE : constants.BODYPOSE_SIZE;
-}
-
-export function getEndIndices() {
-  return config.poseType === 'hand' ? constants.HANDPOSE_END_INDICES : constants.BODYPOSE_END_INDICES;
-}
-
-export function getIgnoredIndices() {
-  return config.poseType === 'hand' ? constants.HANDPOSE_IGNORED_INDICES : constants.BODYPOSE_IGNORED_INDICES;
-}
-
 export function getPoseLimbs() {
   return config.poseType === 'hand' ? constants.HANDPOSE_LIMBS : constants.BODYPOSE_LIMBS;
 }
