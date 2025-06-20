@@ -1,5 +1,4 @@
 import { EventBus, getAverageVectorKeypoint } from './util.js';
-import { MAX_NUMBER_POSES } from "./constants.js";
 
 const sketch = (p) => {
   let pose;
@@ -7,12 +6,12 @@ const sketch = (p) => {
   let paused = false;
   let poses;
 
-  const debugVideoScale = 0.5;
+  const debugVideoScale = 0.6;
 
   p.preload = () => {
     // Load the handPose model
     if (config.poseType == 'hand') {
-      pose = ml5.handPose({ maxHands: MAX_NUMBER_POSES });
+      pose = ml5.handPose({ maxHands: config.numPoses });
     } else {
       pose = ml5.bodyPose("BlazePose");
     }
@@ -29,7 +28,7 @@ const sketch = (p) => {
     }
 
     if (config.videoUrl) {
-      useVideoFile(); 
+      useVideoFile();
     } else {
       useWebcam();
     }
@@ -67,7 +66,11 @@ const sketch = (p) => {
         }
         p.fill(255, 0, 0);
         p.noStroke();
-        p.circle(keypoint.x * debugVideoScale, keypoint.y * debugVideoScale, 5);
+        p.circle(
+          keypoint.x / video.width * p.width, 
+          keypoint.y / video.height * p.height, 
+          5
+        );
       }
     });
   }

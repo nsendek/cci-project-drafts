@@ -10,12 +10,15 @@
   <link rel="stylesheet" type="text/css" href="./style.css">
 
   <script src="../libraries/p5.min.js"></script>
+  <script src="../libraries/ml5.min.js"></script>
   <script>
     const config = {
-      poseType: 'HAND',
+      poseType: 'BODY',
       debugMode: false,
-      // videoUrl: "../videos/holding_hand.mov",
-      poseBufferSize: 3
+      videoUrl: "../videos/double_jumping.mov",
+      // videoUrl: '../videos/people_walking.mp4',
+      poseBufferSize: 1,
+      numPoses: 3
     };
   </script>
 </head>

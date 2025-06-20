@@ -3,8 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { keypointToVector3 } from './src/util.js';
 import { startML5 } from './src/poses.js';
 import { PoseTree, SmartBone, getMemoizedSkinnedMesh } from './src/tree.js'
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
-let camera, scene, renderer, controls, poseTree, worldTreeRoot;
+let camera, scene, renderer, controls, poseTree, worldTreeRoot, gui, folder;
 
 let lastTime = Date.now();
 let currentTime = Date.now();
@@ -34,13 +35,9 @@ function init() {
   camera.position.z = ROOM_SIZE / 2;
   scene = new THREE.Scene();
   renderer = new THREE.WebGLRenderer();
-  gui = new GUI();
 
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
-
-  // renderer.toneMapping = THREE.AgXToneMapping;
-  // renderer.toneMappingExposure = 1.0;
 
   document.getElementById('main').appendChild(renderer.domElement);
   document.body.style.touchAction = 'none';
@@ -48,14 +45,11 @@ function init() {
   window.addEventListener('resize', onWindowResize);
 
   setupEnviroment();
-  setupDebug();
+
   setupLights();
   setupTree();
   startML5();
-
-  folder = gui.addFolder('Root Bone');
-  folder.add(poseTree.getRoot().rotation, 'z', - Math.PI, Math.PI);
-  folder.controllers[0].name('rotation.z');
+  setupDebug();
 }
 
 function render() {
@@ -68,7 +62,7 @@ function render() {
     controls.update();
   }
 
-  updatePoseTrees();
+  // updatePoseTrees();
 
   // let count = 0;
   SmartBone.getInstances().forEach(instance => {
@@ -89,9 +83,6 @@ function render() {
 
 function updatePoseTrees() {
   scene.updateMatrixWorld(true);
-  PoseTree.instances.forEach(instance => {
-    instance.update();
-  })
 }
 
 function setupDebug() {
@@ -102,6 +93,11 @@ function setupDebug() {
   const axis = new THREE.AxesHelper(1000);
   axis.setColors(0xff0000, 0x00ff00, 0x0000ff); // RGB
   scene.add(axis);
+
+  gui = new GUI();
+  folder = gui.addFolder('Root Bone');
+  folder.add(worldTreeRoot.rotation, 'z', - Math.PI, Math.PI);
+  folder.controllers[0].name('rotation.z');
 }
 
 function setupLights() {
@@ -125,38 +121,45 @@ function setupEnviroment() {
   scene.background = new THREE.Color(0x000000);
   // scene.fog = new THREE.Fog( 0x888888, 10, 1500 );
 
-  const mat4 = new THREE.MeshPhongMaterial({ color: 0x555555, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true });
-  const wall4 = new THREE.Mesh(geometry, mat4);
-  wall4.position.y = -ROOM_SIZE / 2;
-  wall4.rotation.x = Math.PI / 2;
-  sceneWalls.push(wall4);
-  room.add(wall4);
+  // const mat4 = new THREE.MeshPhongMaterial({ color: 0x555555, emissive: 0x072534, side: THREE.DoubleSide, flatShading: true });
+  // const wall4 = new THREE.Mesh(geometry, mat4);
+  // wall4.position.y = -ROOM_SIZE / 2;
+  // wall4.rotation.x = Math.PI / 2;
+  // sceneWalls.push(wall4);
+  // room.add(wall4);
 
   scene.add(room);
 }
 
 function setupTree() {
   poseTree = new PoseTree(0, config.alignAllPosesUp);
+  // if (poseTree.debugMode)
   worldTreeRoot = new THREE.Group();
-  scene.add(worldTreeRoot);
+  scene.add(worldTreeRoot)
+
+  worldTreeRoot.add(poseTree.getRoot());
+
+  // if (config.debugMode) scene.add(poseTree.getRoot());
+
 
   if (config.poseType == "body") {
     // root.position.y += 1000;
-    // root.rotation.z = Math.PI;
+    // worldTreeRoot.rotation.z = Math.PI;
     // const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI);
-    // root.quaternion.copy(rotation)
+    // scene.quaternion.copy(rotation);
+    // scene.updateMatrixWorld(true);
   }
   // Simple
-  // recurseFill(poseTree, 0); 
+  recurseFill(poseTree, 1);
 
   // Reasonable max for Hands
-  // recurseFill(poseTree, 3); 
-
-  // Reasonable max for Bodies
   // recurseFill(poseTree, 3);
 
+  // Reasonable max for Bodies
+  // recurseFill(poseTree, 4);
+
   // Stress test for Hands
-  // recurseFill(poseTree, 4); 
+  // recurseFill(poseTree, 4);
 
   // Stress test for Bodies
   // Maybe can be done with debugMode=false
@@ -170,7 +173,7 @@ function setupTree() {
   // poseTree3.scale = 0.25;
   // ends[4].add(poseTree3.getRoot())
 
-  // const endBone = ends[3]
+  // const endBone = poseTree.getEnds()[0]
   // endBone.add(createAngleBone());
   // endBone.parent.add(createAngleBone());
   // endBone.parent.parent.add(createAngleBone());
@@ -197,7 +200,8 @@ function recurseFill(parentTree, level = 1, maxLevel = level) {
   const ends = parentTree.getEnds();
   // ends.forEach(bone => bone.scale.multiplyScalar());
   ends.forEach(end => {
-    const pt = new PoseTree(0, true);
+    const shouldAlignChildren = config.poseType == 'hand';
+    const pt = new PoseTree(0, shouldAlignChildren);
 
     pt.scale = Math.pow(config.scaleFactor, maxLevel - level + 1);
     end.add(pt.getRoot());
@@ -207,14 +211,15 @@ function recurseFill(parentTree, level = 1, maxLevel = level) {
 }
 
 function skinPoseTree(poseTree) {
-  const allBones = poseTree.getBonesForSeparateSkeletons();
-  allBones.forEach(bones => {
+  const limbs = poseTree.getLimbs();
+  limbs.forEach(bones => {
     const skeleton = new THREE.Skeleton(bones);
     const mesh = getMemoizedSkinnedMesh(poseTree.scale);
     const rootBone = bones[0];
-    const rootBoneParent = rootBone.parent || worldTreeRoot;
+    const rootBoneParent = poseTree.getRoot().parent;
     mesh.add(rootBone);
     mesh.bind(skeleton);
+
     window.poseCount++;
     rootBoneParent.add(mesh);
   })

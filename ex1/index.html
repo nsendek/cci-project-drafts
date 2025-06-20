@@ -11,15 +11,16 @@
   <script src="../libraries/ml5.min.js"></script>
   <script>
     const config = {
+      // poseType: 'hand',
       poseType: 'body',
+      videoUrl: '../videos/dan_jumping-jack.mov',
       debugMode: true,
+      alignAllPosesUp: false,
       constantPoseSegmentSizes: false,
       flatShading: true,
-      alignAllPosesUp: false,
       hideMesh: false,
-      lerpFactor: 0.25,
+      lerpFactor: 0.15,
       scaleFactor: 0.33,
-      videoUrl: '../videos/dan_3D_test.mov'
     };
   </script>
 </head>
