@@ -42,8 +42,6 @@ export class PoseTree {
    */
   constructor(poseId = 0, shouldAlign = false) {
     this.poseId = poseId;
-    this.keypointToParentMap = {};
-    this.bones = [];
     this.scale = 1;
     this.shouldAlign = shouldAlign;
     this.targetPose = null;
@@ -80,6 +78,8 @@ export class PoseTree {
     });
 
     PoseTree.instances.push(this);
+
+    this.root.visible = false;
   }
 
   getValueScalar() {
@@ -91,6 +91,7 @@ export class PoseTree {
   }
 
   setTarget(targetPose) {
+    // if (!this.root.visible) this.root.visible = false;
     this.targetPose = targetPose;
     this.update();
   }
@@ -101,50 +102,6 @@ export class PoseTree {
     }
     this.align();
   }
-
-  // alignV3() {
-  //   this.getRoot().updateMatrixWorld(true);
-  //   this.limbs.forEach(limb => {
-  //     for (let i = 0; i < limb.length - 1; i++) {
-  //       const bone = limb[i];
-  //       const childBone = limb[i + 1];
-
-  //       bone.updateMatrixWorld();
-
-  //       const boneWorldPosition = this.getWorldPosition(bone.poseId);
-  //       const childWorldPosition = this.getWorldPosition(childBone.poseId);
-  //       const worldOffset = new THREE.Vector3().subVectors(childWorldPosition, boneWorldPosition);
-
-  //       const magnitide = worldOffset.length();
-
-  //       const targetUp = worldOffset.clone().normalize(); // target up axis in world space.
-  //       // const localUp = new THREE.Vector3(0, 1, 0); // node local up axis.
-  //       const parentWorldQuat = new THREE.Quaternion();
-  //       bone.parent.getWorldQuaternion(parentWorldQuat);
-
-  //       const worldZ = new THREE.Vector3(0, 0, 1);//.applyQuaternion(parentWorldQuat).normalize();
-
-  //       if (Math.abs(targetUp.dot(worldZ)) > 0.999) worldZ.set(1, 0, 0);//.applyQuaternion(parentWorldQuat).normalize(); // avoid parallel case
-
-  //       // const rotationQuat = new THREE.Quaternion().setFromUnitVectors(localUp, targetUp);
-
-  //       const xAxis = new THREE.Vector3().crossVectors(worldZ, targetUp).normalize();
-  //       const zAxis = new THREE.Vector3().crossVectors(targetUp, xAxis).normalize();
-
-  //       const rotMatrix = new THREE.Matrix4().makeBasis(xAxis, targetUp, zAxis);
-  //       const rotationQuat = new THREE.Quaternion().setFromRotationMatrix(rotMatrix);
-  //       // const parentWorldQuatInvert = new THREE.Quaternion();
-  //       // bone.parent.getWorldQuaternion(parentWorldQuatInvert).invert();
-
-  //       // rotationQuat.premultiply(parentWorldQuatInvert);
-
-  //       // Rotate bone than translate child to the expected position along +Y
-  //       bone.setTargetQuaternion(rotationQuat);
-  //       childBone.setTargetPosition(new THREE.Vector3(0, magnitide, 0));
-  //     }
-  //   });
-  // }
-
 
   align() {
     this.getRoot().updateMatrixWorld(true);
@@ -196,16 +153,6 @@ export class PoseTree {
 
   getLimbs() {
     return this.limbs;
-  }
-
-  getBones() {
-    return this.bones.filter(bone => !!bone);
-  }
-
-  getBonesForSeparateSkeletons() {
-    return getPoseLimbs().map(
-      limbIndices => limbIndices.map(i => this.bones[i])
-    );
   }
 
   getEnds() {

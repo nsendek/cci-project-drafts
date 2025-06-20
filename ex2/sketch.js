@@ -29,7 +29,7 @@ const sketch = (p) => {
   p.setup = () => {
     p.createCanvas(640, 480);
     if (config.videoUrl) {
-      useVideoFile(); 
+      useVideoFile();
     } else {
       useWebcam();
     }
@@ -46,39 +46,69 @@ const sketch = (p) => {
     video = p.createVideo(config.videoUrl);
     video.loop();
     video.hide();
-    window.video = video.elt;
+    window.video = video;
+
     video.elt.addEventListener("loadeddata", detectionLoop);
   }
 
   p.draw = () => {
     // Draw the webcam video
     p.background(0);
-    // p.image(video, 0, 0, p.width, p.height);
+
+    p.image(video, 0, 0, p.width, p.height);
 
     // 2D landmarks
-    // poses.forEach(pose => {
-    //   for (let i = 0; i < pose.landmarks.length; i++) {
-    //     let point = pose.landmarks[i];
-    //     if (point) {
-    //       p.fill(255, 0, 0);
-    //       p.noStroke();
-    //       p.circle(point.x * p.width, point.y * p.height, 10);
-    //     }
-    //   }
-    // })
-
-    // Averaged landmarks
-    averagePoses.forEach(pose => {
-      if (!pose) return;
+    poses.forEach((pose, k) => {
       for (let i = 0; i < pose.landmarks.length; i++) {
         let point = pose.landmarks[i];
         if (point) {
-          p.fill(255, 0, 0);
+          setFill(k);
+          // p.fill(255, 0, 0);
           p.noStroke();
           p.circle(point.x * p.width, point.y * p.height, 10);
         }
       }
     })
+
+    // Averaged landmarks
+    // averagePoses.forEach(pose => {
+    //   if (!pose) return;
+    //   for (let i = 0; i < pose.landmarks.length; i++) {
+    //     let point = pose.landmarks[i];
+    //     if (point) {
+    //       p.fill(0, 0, 255);
+    //       p.noStroke();
+    //       p.circle(point.x * p.width, point.y * p.height, 10);
+    //     }
+    //   }
+    // })
+  }
+
+  function setFill(poseId) {
+    switch (poseId) {
+      case 0:
+        p.fill(255, 0, 0);
+        break;
+      case 1:
+        p.fill(0, 255, 0);
+        break;
+      case 2:
+        p.fill(0, 0, 255);
+        break;
+      default:
+    }
+  }
+
+  function gotPoses(results) {
+    // Filter out poses without a high enough confidence.
+    poses = results.filter(pose => pose.confidence > 0.9);
+    if (!poses.length) {
+      return;
+    }
+    poses.forEach(pose => {
+      pose.alignmentVector = getAverageVectorKeypoint(pose);
+    })
+    EventBus.getInstance().emit('poses', poses);
   }
 
   const createLandmarker = async () => {
@@ -93,7 +123,7 @@ const sketch = (p) => {
             delegate: "GPU"
           },
           runningMode: 'VIDEO',
-          numHands: 3
+          numHands: config.numPoses
         });
         break;
       case 'BODY':
@@ -103,7 +133,7 @@ const sketch = (p) => {
             delegate: "GPU"
           },
           runningMode: 'VIDEO',
-          numPoses: 3,
+          numPoses: config.numPoses,
           minPoseDetectionConfidence: 0.9,
           minPosePresenceConfidence: 0.9,
           minTrackingConfidence: 0.9
@@ -145,10 +175,9 @@ const sketch = (p) => {
       return;
     }
 
-    count++;
 
     if (currentNumPoses > numPoses) {
-      console.log('poses num changed')
+      // console.log('poses num changed')
       // Drop the not used poses. How?
       currentNumPoses = numPoses;
     }
@@ -177,6 +206,7 @@ const sketch = (p) => {
       if (buffer.length > config.poseBufferSize) {
         buffer.shift();
       }
+      count++;
     }
     poses = out;
     averagePoses = getAveragePoses();
@@ -184,7 +214,16 @@ const sketch = (p) => {
 
   p.mouseClicked = () => {
     console.log(poses);
-    console.log(averagePoses);
+    // console.log(averagePoses);
+  }
+
+  let paused = false;
+  p.keyPressed = () => {
+    if (p.keyCode == 32) {
+      if (paused) video.play();
+      else video.pause();
+      paused = !paused;
+    }
   }
 
   function createVectorFromObject(point) {
@@ -246,8 +285,8 @@ const sketch = (p) => {
           out.landmarks[j] = new Vector3(0, 0, 0);
           out.worldLandmarks[j] = new Vector3(0, 0, 0);
         }
-        const landmarks = out.landmarks[j]; 
-        const worldLandmarks = out.worldLandmarks[j]; 
+        const landmarks = out.landmarks[j];
+        const worldLandmarks = out.worldLandmarks[j];
         landmarks.add(pose.landmarks[j]);
         worldLandmarks.add(pose.worldLandmarks[j]);
 

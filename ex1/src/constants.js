@@ -1,6 +1,3 @@
-
-export const MAX_NUMBER_POSES = 3;
-
 /**
  * Refer to
  * https://docs.ml5js.org/#/reference/bodypose?id=bodyposedetectstart
