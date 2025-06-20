@@ -34,6 +34,7 @@ function init() {
   camera.position.z = ROOM_SIZE / 2;
   scene = new THREE.Scene();
   renderer = new THREE.WebGLRenderer();
+  gui = new GUI();
 
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -51,6 +52,10 @@ function init() {
   setupLights();
   setupTree();
   startML5();
+
+  folder = gui.addFolder('Root Bone');
+  folder.add(poseTree.getRoot().rotation, 'z', - Math.PI, Math.PI);
+  folder.controllers[0].name('rotation.z');
 }
 
 function render() {
@@ -70,7 +75,6 @@ function render() {
     // if (instance.update()) count++;
     instance.update()
   })
-  // console.log('updates done:', count)
 
   // if (points.length && poseTree.targetPose && poseTree.targetPose.alignmentVector) {
   //   const alignmentVector = keypointToVector3(poseTree.targetPose.alignmentVector);

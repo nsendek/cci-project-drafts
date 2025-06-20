@@ -76,10 +76,10 @@ const sketch = (p) => {
     if (p.keyCode == 32) {
       if (paused) {
         pose.detectStart(video, gotPoses);
-        video.play();
+        if (video) video.play();
       } else {
         pose.detectStop();
-        video.pause();
+        if (video) video.pause();
       }
       paused = !paused;
     }
